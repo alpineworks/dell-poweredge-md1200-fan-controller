@@ -72,7 +72,7 @@ func (c *SerialClient) Port() serial.Port {
 }
 
 func (c *SerialClient) SendTemperatureCommand() {
-	_, err := c.Port().Write([]byte("_temp_rd\n"))
+	_, err := c.Port().Write([]byte("_temp_rd\r\n"))
 	if err != nil {
 		slog.Error("error writing to serial port", slog.String("error", err.Error()))
 	} else {
@@ -81,7 +81,7 @@ func (c *SerialClient) SendTemperatureCommand() {
 }
 
 func (c *SerialClient) SendShutupCommand() {
-	_, err := c.Port().Write([]byte("_shutup 20\n"))
+	_, err := c.Port().Write([]byte("_shutup 10\r\n"))
 	if err != nil {
 		slog.Error("error writing to serial port", slog.String("error", err.Error()))
 	} else {

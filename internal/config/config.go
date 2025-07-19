@@ -25,7 +25,7 @@ type Config struct {
 	TracingService    string  `env:"TRACING_SERVICE" envDefault:"katalog-agent"`
 	TracingVersion    string  `env:"TRACING_VERSION"`
 
-	CronInterval string `env:"CRON_INTERVAL" envDefault:"@every 10s"`
+	CronInterval string `env:"CRON_INTERVAL" envDefault:"@every 30s"`
 }
 
 func NewConfig() (*Config, error) {
