@@ -80,11 +80,11 @@ func (c *SerialClient) Port() serial.Port {
 // 	}
 // }
 
-func (c *SerialClient) SendShutupCommand(value int) {
-	_, err := c.Port().Write([]byte(fmt.Sprintf("_shutup %d\r\n", value)))
+func (c *SerialClient) SendCommand(commandType string, value int) {
+	_, err := c.Port().Write([]byte(fmt.Sprintf("%s %d\r\n", commandType, value)))
 	if err != nil {
 		slog.Error("error writing to serial port", slog.String("error", err.Error()))
 	} else {
-		slog.Debug("sent shutup command")
+		slog.Debug("sent command", slog.String("command", commandType), slog.Int("value", value))
 	}
 }

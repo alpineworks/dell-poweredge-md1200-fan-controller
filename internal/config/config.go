@@ -23,9 +23,10 @@ type Config struct {
 
 	CronInterval string `env:"CRON_INTERVAL" envDefault:"@every 30s"`
 
-	SendShutupNumLoops  int           `env:"SEND_SHUTUP_NUM_LOOPS" envDefault:"5"`      // Number of times to send the shutup command before stopping
-	SendShutupLoopDelay time.Duration `env:"SEND_SHUTUP_LOOP_DELAY" envDefault:"200ms"` // Delay between sending the shutup command
-	ShutupValue         int           `env:"SHUTUP_VALUE" envDefault:"20"`              // Value to send with the shutup command
+	CommandType      string        `env:"COMMAND_TYPE" envDefault:"_shutup"`         // Command type: "_shutup" or "set_speed"
+	CommandNumLoops  int           `env:"COMMAND_NUM_LOOPS" envDefault:"5"`          // Number of times to send the command before stopping
+	CommandLoopDelay time.Duration `env:"COMMAND_LOOP_DELAY" envDefault:"200ms"`     // Delay between sending the command
+	CommandValue     int           `env:"COMMAND_VALUE" envDefault:"20"`             // Value to send with the command
 
 	TracingEnabled    bool    `env:"TRACING_ENABLED" envDefault:"false"`
 	TracingSampleRate float64 `env:"TRACING_SAMPLERATE" envDefault:"0.01"`

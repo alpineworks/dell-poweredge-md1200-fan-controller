@@ -114,6 +114,16 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Reset and drain any buffered data
+	err = serialClient.Port().ResetInputBuffer()
+	if err != nil {
+		slog.Warn("could not reset input buffer", slog.String("error", err.Error()))
+	}
+	err = serialClient.Port().ResetOutputBuffer()
+	if err != nil {
+		slog.Warn("could not reset output buffer", slog.String("error", err.Error()))
+	}
+
 	// Set up signal handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -126,11 +136,11 @@ func main() {
 	cronScheduler := cron.New()
 	_, err = cronScheduler.AddFunc(c.CronInterval, func() {
 
-		for i := 0; i < c.SendShutupNumLoops; i++ {
-			serialClient.SendShutupCommand(c.ShutupValue)
-			time.Sleep(c.SendShutupLoopDelay)
+		for i := 0; i < c.CommandNumLoops; i++ {
+			serialClient.SendCommand(c.CommandType, c.CommandValue)
+			time.Sleep(c.CommandLoopDelay)
 		}
-		slog.Info("sent shutup commands")
+		slog.Info("sent commands", slog.String("command", c.CommandType))
 	})
 	if err != nil {
 		slog.Error("could not add cron job", slog.String("error", err.Error()))
