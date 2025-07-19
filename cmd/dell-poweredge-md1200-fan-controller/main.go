@@ -125,9 +125,12 @@ func main() {
 	// Set up cron scheduler for periodic command writing
 	cronScheduler := cron.New()
 	_, err = cronScheduler.AddFunc(c.CronInterval, func() {
-		serialClient.SendTemperatureCommand()
-		serialClient.SendShutupCommand()
-		slog.Info("sent temperature and shutup commands")
+
+		for i := 0; i < c.SendShutupNumLoops; i++ {
+			serialClient.SendShutupCommand(c.ShutupValue)
+			time.Sleep(c.SendShutupLoopDelay)
+		}
+		slog.Info("sent shutup commands")
 	})
 	if err != nil {
 		slog.Error("could not add cron job", slog.String("error", err.Error()))
