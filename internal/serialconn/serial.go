@@ -81,7 +81,7 @@ func (c *SerialClient) Port() serial.Port {
 // }
 
 func (c *SerialClient) SendCommand(commandType string, value int) {
-	_, err := c.Port().Write([]byte(fmt.Sprintf("%s %d\r\n", commandType, value)))
+	_, err := c.Port().Write([]byte(fmt.Sprintf("%s %d\r", commandType, value)))
 	if err != nil {
 		slog.Error("error writing to serial port", slog.String("error", err.Error()))
 	} else {
