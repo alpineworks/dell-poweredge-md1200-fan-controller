@@ -4,8 +4,8 @@ services:
     build: .
     ports:
       - "8081:8081"
-    # The EMM console must be reachable from inside the container. Replace with
-    # /dev/ttyUSB0 if you use a USB serial adapter.
+    # The EMM console must be reachable from inside the container.
+    # Replace with /dev/ttyUSB0 if you use a USB serial adapter.
     devices:
       - "/dev/ttyS0:/dev/ttyS0"
     restart: unless-stopped
@@ -18,11 +18,11 @@ services:
       SERIAL_BAUDRATE: "38400"
 
       # fan control
-      COMMAND_TYPE: "_shutup"      # or set_speed; identical behaviour
-      COMMAND_VALUE: "20"          # percent; below 20 gets overridden by firmware
-      SEND_INTERVAL: "2s"          # must stay well under ~10s
-      TEMP_READ_INTERVAL: "60s"    # 0 disables _temp_rd polling
-      MAX_AVG_TEMP_CELSIUS: "0"    # e.g. 40 to hand back to auto when hot
+      COMMAND_TYPE: "_shutup"  # or set_speed; identical behaviour
+      COMMAND_VALUE: "20"  # percent; below 20 gets overridden by firmware
+      SEND_INTERVAL: "2s"  # must stay well under ~10s
+      TEMP_READ_INTERVAL: "60s"  # 0 disables _temp_rd polling
+      MAX_AVG_TEMP_CELSIUS: "0"  # e.g. 40 to hand back to auto when hot
 
       # metrics
       METRICS_ENABLED: "true"
@@ -44,9 +44,9 @@ services:
   lgtm:
     image: grafana/otel-lgtm
     ports:
-      - "3000:3000" # Grafana UI
-      - "4317:4317" # OTLP
-      - "4318:4318" # OTLPHTTP
+      - "3000:3000"  # Grafana UI
+      - "4317:4317"  # OTLP
+      - "4318:4318"  # OTLPHTTP
     volumes:
       - ./docker/grafana/dashboards:/var/lib/grafana/dashboards
       - ./docker/grafana/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/grafana-dashboards.yaml
