@@ -5,7 +5,7 @@ FROM golang:1 AS stage-compile
 WORKDIR /go/src/app
 COPY . .
 
-RUN go get -d -v ./... && CGO_ENABLED=0 GOOS=linux go build ./cmd/dell-poweredge-md1200-fan-controller
+RUN go mod download && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" ./cmd/dell-poweredge-md1200-fan-controller
 
 # -=-=-=-=- Final Distroless Image -=-=-=-=-
 
