@@ -5,7 +5,9 @@ services:
     ports:
       - "8081:8081"
     # The EMM console must be reachable from inside the container.
-    # Replace with /dev/ttyUSB0 if you use a USB serial adapter.
+    # On a PowerEdge the rear DB9 is usually /dev/ttyS1. For a USB adapter
+    # map its stable /dev/serial/by-id/... path to a fixed name, e.g.
+    #   - "/dev/serial/by-id/usb-FTDI_..._-if00-port0:/dev/ttyUSB0"
     devices:
       - "/dev/ttyS0:/dev/ttyS0"
     restart: unless-stopped

@@ -159,8 +159,45 @@ and iDRAC also chatter on that port, so keep redirection off and set
 Device".
 
 Several people could get output but not input from a PowerEdge onboard port
-and ended up on a USB-to-RS232 adapter (`/dev/ttyUSB0`). That is a fine
-fallback.
+and ended up on a USB-to-RS232 adapter. That is a fine choice, and it avoids
+the BIOS mapping and the TrueNAS serial console entirely. See the next
+section.
+
+## Using a USB serial adapter instead
+
+FTDI-based adapters (FT232R, FT2232) are the ones consistently reported to
+work; some no-name adapters give output but never deliver input to the EMM.
+The MN657 cable ends in a female DB9, so you need an adapter with a male DB9.
+Only TX, RX and ground are used.
+
+Do not point the app at `/dev/ttyUSB0`. That name can shift to `ttyUSB1`
+after a reboot or replug if anything else USB-serial is attached, such as a
+UPS. Use the stable symlink instead:
+
+```sh
+ls -l /dev/serial/by-id/
+# lrwxrwxrwx 1 root root 13 ... usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0 -> ../../ttyUSB0
+```
+
+```sh
+SERIAL_PORT=/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0
+```
+
+If the adapter re-enumerates the app's reader sees the port disappear and
+exits. Under Docker with `restart: unless-stopped` it comes back on its own,
+so prefer the Docker deployment over an init script when on USB. In compose,
+map the by-id path to a fixed name inside the container:
+
+```yaml
+    devices:
+      - /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0:/dev/ttyUSB0
+    environment:
+      SERIAL_PORT: /dev/ttyUSB0
+```
+
+With a USB adapter the R620 BIOS serial settings and the TrueNAS *Enable
+Serial Console* option are irrelevant. The port-contention check still
+applies: `fuser /dev/ttyUSB0` should print nothing while the app is stopped.
 
 Confirm the port before running anything as a service. On the TrueNAS shell:
 
