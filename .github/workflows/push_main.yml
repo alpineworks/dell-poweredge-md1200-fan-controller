@@ -1,7 +1,7 @@
 ---
 name: Release Version
 
-on: # yamllint disable-line rule:truthy
+on:  # yamllint disable-line rule:truthy
   push:
     branches:
       - main
@@ -10,6 +10,7 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
+  actions: write
 
 jobs:
   release:
@@ -25,9 +26,24 @@ jobs:
           node-version: lts/*
 
       - name: Install Semantic Release Plugins
-        run: npm install conventional-changelog-conventionalcommits@6 # yamllint disable-line rule:line-length
+        run: npm install conventional-changelog-conventionalcommits@6  # yamllint disable-line rule:line-length
 
       - name: Release Version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx semantic-release@22.0.12
+
+      # Events raised with GITHUB_TOKEN never start other workflows, so the
+      # "release: created" trigger on upload_image.yml does not fire here.
+      # workflow_dispatch is the documented exception, so use it.
+      - name: Publish container image for the new release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git fetch --tags --quiet
+          if tag="$(git describe --tags --exact-match HEAD 2>/dev/null)"; then
+            echo "dispatching image build for $tag"
+            gh workflow run upload_image.yml --ref main -f tag="$tag"
+          else
+            echo "no release was created for this commit; nothing to publish"
+          fi

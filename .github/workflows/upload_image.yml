@@ -1,10 +1,20 @@
 ---
 name: Upload Image
 
-on: #  yamllint disable-line rule:truthy
+# Releases are cut by semantic-release using the built-in GITHUB_TOKEN, and
+# GitHub never starts another workflow from events that token creates. The
+# release job therefore dispatches this workflow explicitly; the release
+# trigger is kept for releases created by hand.
+on:  # yamllint disable-line rule:truthy
   release:
     types:
       - created
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build and publish (e.g. v1.0.2)"
+        required: true
+        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -18,8 +28,23 @@ jobs:
       packages: write
 
     steps:
+      - name: Resolve release tag
+        id: tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          tag="${INPUT_TAG:-$RELEASE_TAG}"
+          if [ -z "$tag" ]; then
+            echo "no release tag available" >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
 
       - name: Log in to the Container registry
         uses: docker/login-action@v2
@@ -33,6 +58,9 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ steps.tag.outputs.tag }}
+            type=raw,value=latest
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v2
