@@ -57,6 +57,12 @@ Example `_temp_rd` output, which this program parses:
 Commands do not survive a power cycle. Nothing is written to flash, so there
 is no wear concern with sending a command every second.
 
+Serial writes are retried: immediately when the kernel call is interrupted
+by a signal (`EINTR`, which Go's runtime triggers occasionally), and with a
+short exponential backoff on other transient errors, bounded to stay inside
+one send interval. A closed or vanished port is not retried; the process
+exits so a restart policy can reopen it.
+
 ## Why the fans ramp back up
 
 Every cause reported in the community, in rough order of how often it bites:
