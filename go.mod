@@ -7,6 +7,7 @@ toolchain go1.22.2
 require (
 	alpineworks.io/ootel v1.0.4
 	github.com/caarlos0/env/v11 v11.3.1
+	github.com/cenkalti/backoff/v4 v4.3.0
 	go.bug.st/serial v1.6.4
 	go.opentelemetry.io/contrib/instrumentation/host v0.59.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.59.0
@@ -16,7 +17,6 @@ require (
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/creack/goselect v0.1.2 // indirect
 	github.com/ebitengine/purego v0.8.2 // indirect

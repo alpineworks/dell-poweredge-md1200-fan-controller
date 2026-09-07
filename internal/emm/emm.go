@@ -16,8 +16,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"go.bug.st/serial"
 )
 
@@ -79,6 +81,23 @@ type Client struct {
 	mode     *serial.Mode
 	port     serial.Port
 	writeMu  sync.Mutex
+	retry    RetryPolicy
+}
+
+// RetryPolicy bounds how hard Send tries before giving up on one command.
+// Transient failures (EINTR, EAGAIN and the like) are retried with
+// exponential backoff; a closed port is never retried.
+type RetryPolicy struct {
+	InitialInterval time.Duration
+	MaxInterval     time.Duration
+	MaxElapsedTime  time.Duration
+}
+
+// DefaultRetryPolicy keeps a whole retried send well inside a 2 s send interval.
+var DefaultRetryPolicy = RetryPolicy{
+	InitialInterval: 50 * time.Millisecond,
+	MaxInterval:     300 * time.Millisecond,
+	MaxElapsedTime:  1 * time.Second,
 }
 
 type Option func(*Client)
@@ -87,10 +106,13 @@ func WithPort(path string) Option { return func(c *Client) { c.portPath = path }
 func WithMode(mode *serial.Mode) Option {
 	return func(c *Client) { c.mode = mode }
 }
+func WithRetryPolicy(p RetryPolicy) Option {
+	return func(c *Client) { c.retry = p }
+}
 
 // Open opens the serial port and drains anything the EMM has queued up.
 func Open(options ...Option) (*Client, error) {
-	c := &Client{}
+	c := &Client{retry: DefaultRetryPolicy}
 	for _, o := range options {
 		o(c)
 	}
@@ -127,25 +149,95 @@ func (c *Client) Close() error {
 // that any partial input already sitting in the EMM's line buffer (from a
 // previous interrupted write, or a stray byte) is discarded rather than
 // prepended to this command.
+//
+// The write and the following drain are retried immediately on EINTR, which
+// the Go runtime's signal-based preemption triggers now and then, and with
+// exponential backoff on other transient errors. A closed port fails at once.
 func (c *Client) Send(command string) error {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
 
 	payload := []byte("\r" + command + "\r")
-	n, err := c.port.Write(payload)
-	if err != nil {
-		return fmt.Errorf("write %q: %w", command, err)
+
+	attempt := 0
+	op := func() error {
+		attempt++
+		if err := c.writeAll(payload); err != nil {
+			return classify(fmt.Errorf("write %q: %w", command, err))
+		}
+		// Drain() blocks until the UART has actually shifted the bytes out,
+		// so a following Send cannot interleave and the EMM sees whole lines.
+		if err := drainEINTR(c.port); err != nil {
+			return classify(fmt.Errorf("drain after %q: %w", command, err))
+		}
+		return nil
 	}
-	if n != len(payload) {
-		return fmt.Errorf("write %q: short write (%d of %d bytes)", command, n, len(payload))
+	notify := func(err error, wait time.Duration) {
+		slog.Warn("console send failed; retrying",
+			slog.String("command", command), slog.Int("attempt", attempt),
+			slog.Duration("wait", wait), slog.String("error", err.Error()))
 	}
-	// Drain() blocks until the UART has actually shifted the bytes out, so a
-	// following Send cannot interleave and the EMM sees whole lines.
-	if err := c.port.Drain(); err != nil {
-		return fmt.Errorf("drain after %q: %w", command, err)
+
+	if err := backoff.RetryNotify(op, c.newBackOff(), notify); err != nil {
+		return err
 	}
-	slog.Debug("sent console command", slog.String("command", command))
+	slog.Debug("sent console command", slog.String("command", command), slog.Int("attempts", attempt))
 	return nil
+}
+
+func (c *Client) newBackOff() backoff.BackOff {
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = c.retry.InitialInterval
+	b.MaxInterval = c.retry.MaxInterval
+	b.MaxElapsedTime = c.retry.MaxElapsedTime
+	b.Reset()
+	return b
+}
+
+// writeAll writes the whole payload, resuming after short writes and
+// retrying immediately when the syscall is interrupted by a signal.
+func (c *Client) writeAll(p []byte) error {
+	for len(p) > 0 {
+		n, err := c.port.Write(p)
+		if err != nil {
+			if errors.Is(err, syscall.EINTR) {
+				p = p[n:]
+				continue
+			}
+			return err
+		}
+		if n == 0 {
+			return errors.New("short write: no bytes accepted")
+		}
+		p = p[n:]
+	}
+	return nil
+}
+
+// drainEINTR calls Drain until it completes without being interrupted.
+func drainEINTR(port serial.Port) error {
+	for {
+		err := port.Drain()
+		if err == nil || !errors.Is(err, syscall.EINTR) {
+			return err
+		}
+	}
+}
+
+// classify marks errors that will never succeed on retry as permanent so
+// the backoff gives up immediately instead of burning the whole budget.
+func classify(err error) error {
+	var portErr *serial.PortError
+	if errors.As(err, &portErr) {
+		switch portErr.Code() {
+		case serial.PortClosed, serial.PortNotFound, serial.PermissionDenied, serial.InvalidSerialPort:
+			return backoff.Permanent(err)
+		}
+	}
+	if errors.Is(err, syscall.EBADF) || errors.Is(err, syscall.ENODEV) || errors.Is(err, syscall.ENXIO) {
+		return backoff.Permanent(err)
+	}
+	return err
 }
 
 // SetFanSpeed forces the fan duty cycle using the given command ("_shutup" or "set_speed").
